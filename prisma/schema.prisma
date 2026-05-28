@@ -1,0 +1,56 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  password     String
+  company_name String
+  api_quota    Int         @default(50)
+  created_at   DateTime    @default(now())
+  leads        Lead[]
+  searchJobs   SearchJob[]
+}
+
+model SearchJob {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  status           String   @default("pending")
+  query_params     Json
+  progress         Int      @default(0)
+  total_businesses Int      @default(0)
+  leads_generated  Int      @default(0)
+  error_message    String?
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  leads            Lead[]
+}
+
+model Lead {
+  id                 String    @id @default(cuid())
+  jobId              String
+  job                SearchJob @relation(fields: [jobId], references: [id])
+  userId             String
+  user               User      @relation(fields: [userId], references: [id])
+  place_id           String
+  business_name      String
+  address            String?
+  rating             Float?
+  total_reviews      Int?
+  website            String?
+  phone              String?
+  formatted_whatsapp String?
+  ai_lead_score      String
+  ai_analysis_reason String    @db.Text
+  raw_data           Json?
+  created_at         DateTime  @default(now())
+
+  @@unique([userId, place_id])
+}
