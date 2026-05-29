@@ -29,9 +29,13 @@ export const leadSearchWorker = new Worker(
                 data: { status: "processing", progress: 5 },
             });
 
+
+            const dynamicQuery = `Klinik dan Apotek di ${location}`;
+            console.log(``);
+
             const businesses = await googlePlacesService.searchText({
-                textQuery: `${location} (restaurant OR cafe OR bar OR bakery)`,
-                maxResults: 12,
+                textQuery: dynamicQuery,
+                maxResults: 5,
             });
 
             if (!businesses || businesses.length === 0) {
@@ -49,19 +53,24 @@ export const leadSearchWorker = new Worker(
             });
 
             let processedCount = 0;
-            const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
             for (const business of businesses) {
                 try {
                     const details = await googlePlacesService.getPlaceDetails(business.place_id);
+
+                    // Mapping data yang lebih kuat agar AI tidak bingung
                     const minimalBusinessData: MinimalBusinessInput = {
                         id: business.place_id,
-                        nama: details.displayName?.text || "N/A",
-                        kategori: details.primaryType || "UMKM",
-                        rating: details.rating,
-                        total_review: details.userRatingCount,
-                        has_website: !!details.websiteUri,
-                        has_phone_number: !!details.nationalPhoneNumber,
+                        nama: details.displayName?.text || details.name || "N/A",
+                        kategori: details.primaryType || (details.types ? details.types[0] : "Business"),
+                        rating: details.rating || 0,
+                        total_review: details.userRatingCount || 0,
+                        has_website: !!(details.websiteUri || details.website),
+                        has_phone_number: !!(details.nationalPhoneNumber || details.internationalPhoneNumber),
                     };
+
+                    console.log(`🤖 Menganalisis: ${minimalBusinessData.nama} (${minimalBusinessData.kategori})`);
+
                     const analysis = await analyzeLeadWithLLM({ business: minimalBusinessData, solutionFocus });
                     const validated = LeadAnalysisSchema.parse(analysis);
 
@@ -77,15 +86,17 @@ export const leadSearchWorker = new Worker(
                             ai_lead_score: validated.score,
                             ai_analysis_reason: validated.reason,
                             formatted_whatsapp: validated.whatsapp ? `https://wa.me/${validated.whatsapp}` : null,
+                            business_name: minimalBusinessData.nama, // Update nama jika ada perubahan
+                            address: details.formattedAddress,
                         },
                         create: {
                             jobId: jobId,
                             userId: userId,
                             place_id: business.place_id,
-                            business_name: details.displayName?.text || "N/A",
+                            business_name: minimalBusinessData.nama,
                             address: details.formattedAddress,
-                            rating: details.rating,
-                            total_reviews: details.userRatingCount,
+                            rating: minimalBusinessData.rating,
+                            total_reviews: minimalBusinessData.total_review,
                             website: details.websiteUri,
                             phone: details.nationalPhoneNumber,
                             formatted_whatsapp: validated.whatsapp ? `https://wa.me/${validated.whatsapp}` : null,
@@ -106,8 +117,9 @@ export const leadSearchWorker = new Worker(
                             data: { progress, leads_generated: processedCount },
                         });
                     }
+
                 } catch (err) {
-                    console.error(`Gagal memproses tempat ${business.place_id}:`, err);
+                    console.error(`❌ Gagal memproses tempat ${business.place_id}:`, err);
                 }
             }
 
@@ -132,8 +144,8 @@ export const leadSearchWorker = new Worker(
     }
 );
 
-leadSearchWorker.on("completed", (job) => {
-    console.log(`✅ Job ${job.id} selesai! Prospek yang diekstrak: ${job.returnvalue.leadsCreated}`);
+leadSearchWorker.on("completed", (job, result) => {
+    console.log(`✅ Job ${job.id} selesai! Prospek yang diekstrak: ${result?.leadsCreated ?? 0}`);
 });
 
 leadSearchWorker.on("failed", (job, err) => {

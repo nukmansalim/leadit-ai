@@ -1,39 +1,33 @@
-import openAI from "openai";
-const apiKey = process.env.HELYX_API_KEY;
+import OpenAI from "openai";
+import { MinimalBusinessInput } from "@/app/types/business";
 
+const apiKey = process.env.GROQ_API_KEY;
 
 if (!apiKey) {
-    throw new Error("HELYX_API_KEY belum dipasang di file .env");
+    throw new Error("GROQ_API_KEY belum dipasang di file .env");
 }
 
-const client = new openAI({
+const client = new OpenAI({
     apiKey,
-    baseURL: "https://helyxai.space/api/v1",
+    baseURL: "https://api.groq.com/openai/v1",
 });
 
-
 interface AnalyzeParams {
-    business: any;
+    business: MinimalBusinessInput;
     solutionFocus: string;
 }
 
 export async function analyzeLeadWithLLM({ business, solutionFocus }: AnalyzeParams) {
-    const reviewsText = business.reviews
-        ? business.reviews.map((r: any) => `"${r.text?.text || r.text || ""}"`).join(" | ")
-        : "Tidak ada ulasan.";
-
     const prompt = `
 Anda adalah Sales Intelligence Agent untuk analisis B2B lead.
 
-DATA BISNIS:
-- Nama Usaha: ${business.displayName?.text || business.nama || "Tidak diketahui"}
-- Kategori/Tipe: ${business.kategori || business.primaryType || "Tidak diketahui"}
-- Alamat: ${business.formattedAddress || "Tidak diketahui"}
-- Rating Google: ${business.rating || "Tidak ada"}
-- Total Ulasan: ${business.userRatingCount || business.total_review || 0}
-- Website: ${business.websiteUri || "Tidak ada"}
-- Kontak: ${business.nationalPhoneNumber || "Tidak ada"}
-- Ulasan Pelanggan Terakhir: ${reviewsText}
+DATA BISNIS (Ramping):
+- Nama Usaha: ${business.nama || "Tidak diketahui"}
+- Kategori/Tipe: ${business.kategori || "Tidak diketahui"}
+- Rating Google: ${business.rating ?? "Tidak ada"}
+- Total Ulasan: ${business.total_review ?? 0}
+- Sudah Punya Website: ${business.has_website ? "Ya" : "Tidak"}
+- Memiliki Nomor HP/Kontak: ${business.has_phone_number ? "Ya" : "Tidak"}
 
 SOLUSI YANG DITAWARKAN:
 "${solutionFocus}"
@@ -45,11 +39,10 @@ ATURAN PENILAIAN:
 
 ATURAN OUTPUT:
 - Jawab hanya JSON murni.
-- Jangan pakai markdown.
+- Jangan pakai markdown (JANGAN gunakan bungkus \`\`\`json ... \`\`\`).
 - Jangan beri penjelasan di luar JSON.
-- Reason maksimal 2 sampai 3 kalimat.
-- Whatsapp harus format 628xxx jika nomor tersedia.
-- Jika tidak ada nomor, isi null.
+- Reason maksimal 2 sampai 3 kalimat dalam Bahasa Indonesia.
+- Whatsapp harus format 628xxx jika nomor tersedia. Jika tidak ada nomor, isi null.
 
 Format JSON wajib:
 {
@@ -59,35 +52,35 @@ Format JSON wajib:
 }
 `.trim();
 
-
     try {
-
         const result = await client.chat.completions.create({
-            model: "helix_3_5",
+            model: "qwen/qwen3-32b",
             messages: [
                 {
                     role: 'system',
-                    content: "Anda hanya menghasilkan JSON valid sesuai format yang diminta.",
+                    content: "Anda adalah sistem analitik yang HANYA mengeluarkan output berupa JSON valid. Dilarang keras memberikan teks pengantar atau penutup.",
                 },
                 {
                     role: "user",
                     content: prompt
                 }
             ],
+            response_format: { type: "json_object" }
         });
 
         const rawResponse = result.choices[0].message.content;
 
         if (!rawResponse) {
-            throw new Error("AI tidak memberikan respons teks.");
+            throw new Error("Groq AI tidak memberikan respons teks.");
         }
+
         return JSON.parse(rawResponse);
 
-    } catch (error) {
-        console.error("AI SDK Analysis Error:", error);
+    } catch (error: any) {
+        console.error("❌ Groq AI SDK Analysis Error:", error.message);
         return {
             score: "Low",
-            reason: "Gagal dianalisis oleh AI karena gangguan API atau kesalahan pemrosesan teks.",
+            reason: `Gagal dianalisis karena kendala API Groq: ${error.message}`,
             whatsapp: null,
         };
     }
