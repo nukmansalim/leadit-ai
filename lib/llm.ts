@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { MinimalBusinessInput } from "@/app/types/business";
+import { MinimalBusinessInput } from "@/types/business";
 
 const apiKey = process.env.GROQ_API_KEY;
 

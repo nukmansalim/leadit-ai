@@ -3,7 +3,7 @@ import Redis from "ioredis";
 import { prisma } from "@/lib/prisma";
 import { googlePlacesService } from "@/lib/google-places";
 import { analyzeLeadWithLLM } from "@/lib/llm";
-import { MinimalBusinessInput } from "../types/business";
+import { MinimalBusinessInput } from "../../types/business";
 import { z } from "zod";
 
 const LeadAnalysisSchema = z.object({
@@ -58,7 +58,6 @@ export const leadSearchWorker = new Worker(
                 try {
                     const details = await googlePlacesService.getPlaceDetails(business.place_id);
 
-                    // Mapping data yang lebih kuat agar AI tidak bingung
                     const minimalBusinessData: MinimalBusinessInput = {
                         id: business.place_id,
                         nama: details.displayName?.text || details.name || "N/A",
@@ -86,7 +85,7 @@ export const leadSearchWorker = new Worker(
                             ai_lead_score: validated.score,
                             ai_analysis_reason: validated.reason,
                             formatted_whatsapp: validated.whatsapp ? `https://wa.me/${validated.whatsapp}` : null,
-                            business_name: minimalBusinessData.nama, // Update nama jika ada perubahan
+                            business_name: minimalBusinessData.nama,
                             address: details.formattedAddress,
                         },
                         create: {
