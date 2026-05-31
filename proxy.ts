@@ -1,7 +1,7 @@
-import { auth } from "@/auth";
+import { auth as proxy } from "@/auth";
 import { NextRequest } from "next/server";
 
-export default auth((req: NextRequest & { auth: any }) => {
+export default proxy((req: any) => {
     const isLoggedIn = !!req.auth;
     const { nextUrl } = req;
 
