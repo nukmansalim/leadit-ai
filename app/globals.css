@@ -1,8 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* PRD Color Palette */
+  --color-primary: #2563EB;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-light: #3b82f6;
+  --color-accent-teal: #0D9488;
+  --color-accent-teal-light: #14b8a6;
+  --color-accent-coral: #F43F5E;
+  --color-accent-coral-light: #fb7185;
+  --color-bg-base: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-text-main: #0F172A;
+  --color-text-muted: #64748B;
+  --color-border: #e2e8f0;
+  --color-border-hover: #cbd5e1;
+
+  --background: #F8FAFC;
+  --foreground: #0F172A;
 }
 
 @theme inline {
@@ -12,15 +27,36 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Gradient mesh background animation */
+@keyframes gradient-shift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -30px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+.animate-gradient-shift {
+  animation: gradient-shift 15s ease-in-out infinite;
+}
+
+.animate-gradient-shift-delayed {
+  animation: gradient-shift 18s ease-in-out infinite 3s;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float 8s ease-in-out infinite 2s;
 }
