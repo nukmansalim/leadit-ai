@@ -7,7 +7,10 @@
     "worker": "PRISMA_CLIENT_ENGINE_TYPE='library' tsx lib/bullmq/worker-runner.ts",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run",
+    "test:e2e": "start-server-and-test start http://localhost:3000 cypress:run"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.80",
@@ -36,9 +39,11 @@
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cypress": "^15.16.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "prisma": "^7.8.0",
+    "start-server-and-test": "^3.0.5",
     "tailwindcss": "^4",
     "tsx": "^4.22.3",
     "typescript": "^5"
