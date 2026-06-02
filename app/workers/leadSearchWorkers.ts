@@ -30,12 +30,12 @@ export const leadSearchWorker = new Worker(
             });
 
 
-            const dynamicQuery = `Klinik dan Apotek di ${location}`;
-            console.log(``);
+            const dynamicQuery = `${solutionFocus} di ${location}`;
+            console.log(`🔍 Mencari: ${dynamicQuery}`);
 
             const businesses = await googlePlacesService.searchText({
                 textQuery: dynamicQuery,
-                maxResults: 5,
+                maxResults: 20,
             });
 
             if (!businesses || businesses.length === 0) {
