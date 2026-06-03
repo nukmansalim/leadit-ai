@@ -154,7 +154,7 @@ export default function LoginPage() {
                     <div className="w-full bg-white border border-[#e2e8f0] rounded-2xl p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_6px_24px_rgba(0,0,0,0.04)] flex flex-col gap-6">
                         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                             {error && (
-                                <div className="bg-[#FFF1F2] border border-[#F43F5E]/20 text-[#F43F5E] px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+                                <div data-testid="error-message" className="bg-[#FFF1F2] border border-[#F43F5E]/20 text-[#F43F5E] px-4 py-3 rounded-xl text-sm flex items-center gap-2">
                                     <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                         <circle cx="12" cy="12" r="10" />
                                         <path d="M12 8v4m0 4h.01" strokeLinecap="round" />
