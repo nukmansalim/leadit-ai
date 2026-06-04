@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "worker": "PRISMA_CLIENT_ENGINE_TYPE='library' tsx lib/bullmq/worker-runner.ts",
+    "worker": "tsx lib/bullmq/worker-runner.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

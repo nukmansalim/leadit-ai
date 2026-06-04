@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { leadSearchQueue } from "@/lib/bullmq/queue";
+import { addLeadSearchJob } from "@/lib/bullmq/queue";
 import { z } from "zod";
 
 const SearchRequestSchema = z.object({
@@ -28,11 +28,15 @@ export async function POST(req: Request) {
             }
         });
 
-        await leadSearchQueue.add("process-lead-search", {
+        const { userId, location, solutionFocus, ratingLimit, websiteStatus } = parsedData;
+
+        await addLeadSearchJob({
             jobId: newJob.id,
-            userId: parsedData.userId,
-            location: parsedData.location,
-            solutionFocus: parsedData.solutionFocus
+            userId,
+            location,
+            solutionFocus,
+            ratingLimit,
+            websiteStatus,
         });
 
         return NextResponse.json({

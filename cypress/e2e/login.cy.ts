@@ -1,13 +1,10 @@
 describe('Auth Test Suite', () => {
-    // Generate a unique email per run to avoid state leakage.
     const testRunId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const testEmail = `auth-test-${testRunId}@test.com`;
     const testPassword = 'SecurePassword123!';
     const testName = 'Auth Test User';
 
-    before(() => {
-        // Pre-register the test user using the API
-        cy.request({
+    before(() => {        cy.request({
             method: 'POST',
             url: '/api/register',
             body: {
@@ -20,8 +17,6 @@ describe('Auth Test Suite', () => {
             expect(res.status).to.eq(201);
         });
     });
-
-    // Clean up the test user/state after the entire suite finishes.
     after(() => {
         cy.request({
             method: 'POST',
@@ -33,18 +28,12 @@ describe('Auth Test Suite', () => {
             },
             failOnStatusCode: false, // Already exists = 400, that's fine
         });
-        // NOTE: Ideally, add a DELETE /api/admin/users/:email endpoint
-        // (protected, test-env only) and call it here to truly remove the user.
-        // For now, unique emails per run prevent collisions.
-    });
+      });
 
     beforeEach(() => {
         cy.visit('/login');
     });
 
-    // ==========================================
-    // REQUIREMENT 1: LOGIN PAGE FUNCTIONALITY (UI & E2E)
-    // ==========================================
     describe('1. Login Page UI & E2E Functionality', () => {
         it('should validate form fields on the client side', () => {
             // Attempt submission with empty fields
@@ -76,16 +65,12 @@ describe('Auth Test Suite', () => {
 
             cy.wait('@failedLoginReq').then((interception) => {
                 expect(interception.response?.statusCode).to.be.oneOf([401, 400, 200, 302]);
-
-                // Assert no system stack trace/database leaks in the response
                 const bodyStr = JSON.stringify(interception.response?.body || '');
                 expect(bodyStr).to.not.contain('Stack Trace');
                 expect(bodyStr).to.not.contain('at ');
                 expect(bodyStr).to.not.contain('PrismaClient');
                 expect(bodyStr).to.not.contain('SQL');
             });
-
-            // Query by data-testid
             cy.get('[data-testid="error-message"]').should('be.visible').and(($el) => {
                 const text = $el.text().toLowerCase();
                 expect(text).to.satisfy((t: string) => {
@@ -95,8 +80,6 @@ describe('Auth Test Suite', () => {
                 expect(text).to.not.contain('database');
             });
         });
-
-        // Use Cypress built-in delay to slow down request and check loading state
         it('should disable the submit button during API network requests to prevent double-submission', () => {
             cy.intercept('POST', '**/api/auth/callback/credentials*', (req) => {
                 req.on('response', (res) => {
@@ -107,14 +90,11 @@ describe('Auth Test Suite', () => {
             cy.get('#email').type(testEmail);
             cy.get('#password').type(testPassword);
             cy.get('button[type="submit"]').click();
-
-            // Assert disabled loading state immediately after click
             cy.get('button[type="submit"]')
                 .should('be.disabled')
                 .and('contain', 'Masuk...');
 
-            // Wait for the request to complete
-            cy.wait('@delayedLoginReq');
+                    cy.wait('@delayedLoginReq');
         });
 
         it('should successfully log in and redirect with valid credentials', () => {
@@ -126,10 +106,6 @@ describe('Auth Test Suite', () => {
             cy.url().should('eq', Cypress.config().baseUrl + '/');
         });
     });
-
-    // ==========================================
-    // REQUIREMENT 2: API DATA MINIMIZATION & EXPOSURE
-    // ==========================================
     describe('2. API Data Exposure & Minimization', () => {
         it('should not expose sensitive user attributes in auth network responses', () => {
             cy.intercept('POST', '**/api/auth/callback/credentials*').as('credentialsReq');
@@ -229,11 +205,8 @@ describe('Auth Test Suite', () => {
         });
     });
 
-    // ==========================================
-    // REQUIREMENT 3: NEXTAUTH SESSION SECURITY
-    // ==========================================
     describe('3. NextAuth Session Security', () => {
-        // Bypass UI login using the programmatic command to speed up execution
+        
         beforeEach(() => {
             cy.loginProgrammatically(testEmail, testPassword);
         });

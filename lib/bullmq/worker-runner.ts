@@ -1,10 +1,46 @@
-import { leadSearchWorker } from "@/app/workers/leadSearchWorkers";
+import { loadEnvConfig } from "@next/env";
+loadEnvConfig(process.cwd());
 
-console.log("🚀 [Worker] Lead Search Worker is starting...");
-process.on("SIGTERM", async () => {
-    console.log("Stopping worker...");
-    await leadSearchWorker.close();
+async function main() {
+  const { createLeadSearchWorker } = await import(
+    "@/lib/bullmq/workers/lead-search.worker"
+  );
+  const worker = await createLeadSearchWorker();
+
+  worker.on("ready", () => {
+    console.log("Lead search worker is ready");
+  });
+
+  worker.on("active", (job) => {
+    console.log(`Processing lead search job: ${job.id}`);
+  });
+
+  worker.on("completed", (job, result) => {
+    console.log(`Lead search job completed: ${job.id}`, result);
+  });
+
+  worker.on("failed", (job, error) => {
+    console.error(`Lead search job failed: ${job?.id ?? "unknown"}`, error);
+  });
+
+  async function shutdown(): Promise<void> {
+    console.log("Closing lead search worker...");
+
+    await worker.close();
+
     process.exit(0);
-});
+  }
 
-console.log("✅ [Worker] Listening for jobs in Redis...");
+  process.on("SIGINT", () => {
+    void shutdown();
+  });
+
+  process.on("SIGTERM", () => {
+    void shutdown();
+  });
+}
+
+main().catch((err) => {
+  console.error("Worker failed to start:", err);
+  process.exit(1);
+});
