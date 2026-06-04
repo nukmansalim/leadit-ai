@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
     AuthShell,
     AuthCard,
@@ -12,6 +13,8 @@ import {
 } from "@/components";
 
 export default function LoginForm() {
+    const searchParams = useSearchParams();
+    const successParam = searchParams.get("success");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
@@ -50,6 +53,16 @@ export default function LoginForm() {
         >
             <AuthCard>
                 <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                    {successParam && (
+                        <div className="bg-[#f0fdf4] border border-[#0D9488]/20 text-[#0D9488] px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+                            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                                <circle cx="12" cy="12" r="10" />
+                            </svg>
+                            {successParam}
+                        </div>
+                    )}
+
                     {error && (
                         <div data-testid="error-message" className="bg-[#FFF1F2] border border-[#F43F5E]/20 text-[#F43F5E] px-4 py-3 rounded-xl text-sm flex items-center gap-2">
                             <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { registerAction } from "@/app/actions/auth";
 import {
     AuthShell,
     AuthCard,
@@ -28,33 +29,20 @@ export default function RegisterForm() {
         setSuccess(null);
 
         try {
-            const res = await fetch("/api/register", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    name,
-                    company_name: companyName,
-                    email,
-                    password
-                })
+            const res = await registerAction({
+                name,
+                company_name: companyName,
+                email,
+                password
             });
 
-            const data = await res.json();
-
-            if (!res.ok) {
-                throw new Error(data.message || "Gagal membuat akun.");
+            if (res && res.error) {
+                setError(res.error);
+            } else {
+                setSuccess("Akun Berhasil Dibuat! Mengalihkan ke halaman login...");
             }
-
-            setSuccess("Akun Berhasil Dibuat! Mengalihkan ke halaman login...");
-            
-            setTimeout(() => {
-                router.push("/login");
-            }, 2000);
-
         } catch (err: any) {
-            setError(err.message);
+            setError(err.message || "Gagal membuat akun.");
         } finally {
             setLoading(false);
         }

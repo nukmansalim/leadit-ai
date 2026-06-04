@@ -193,7 +193,7 @@ describe('Auth Test Suite', () => {
                 },
                 failOnStatusCode: false
             }).then((res) => {
-                expect(res.status).to.eq(400);
+                expect(res.status).to.eq(409);
 
                 const responseString = JSON.stringify(res.body);
                 expect(responseString).to.not.contain('PrismaClientValidationError');

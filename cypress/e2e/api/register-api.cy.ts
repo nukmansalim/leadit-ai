@@ -41,7 +41,7 @@ describe('POST /api/register', () => {
             expect(res.body.message).to.eq('Data tidak Lengkap')
         })
     })
-    it('should return 400 for duplicate email', () => {
+    it('should return 409 for duplicate email', () => {
         const email = `dup-${Date.now()}@test.com`
 
         cy.request('POST', '/api/register', {
@@ -56,7 +56,7 @@ describe('POST /api/register', () => {
             body: { email, password: 'pass123' },
             failOnStatusCode: false,
         }).then((res) => {
-            expect(res.status).to.eq(400)
+            expect(res.status).to.eq(409)
             expect(res.body.message).to.eq('akun sudah terdaftar')
         })
     })
