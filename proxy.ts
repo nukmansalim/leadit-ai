@@ -7,9 +7,8 @@ export default auth((req) => {
     const isAuthPage = nextUrl.pathname.startsWith("/login") ||
         nextUrl.pathname.startsWith("/register");
     const isDashboardPage = nextUrl.pathname.startsWith("/dashboard");
-    const isApiSearchPage = nextUrl.pathname.startsWith("/api/search");
 
-    if (!isLoggedIn && (isDashboardPage || isApiSearchPage)) {
+    if (!isLoggedIn && isDashboardPage) {
         return Response.redirect(new URL("/login", nextUrl));
     }
 

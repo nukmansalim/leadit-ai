@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { addLeadSearchJob } from "@/lib/bullmq/queue";
 import { z } from "zod";
+import { auth } from "@/auth";
 
 const SearchRequestSchema = z.object({
-    userId: z.string().min(1, "User ID wajib diisi"),
     location: z.string().min(3, "Lokasi terlalu pendek"),
     solutionFocus: z.string().min(1, "Fokus solusi wajib dipilih"),
     ratingLimit: z.string().optional(),
@@ -13,13 +13,22 @@ const SearchRequestSchema = z.object({
 
 export async function POST(req: Request) {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({
+                success: false,
+                message: "Unauthorized"
+            }, { status: 401 });
+        }
+        const userId = session.user.id;
+
         const body = await req.json();
 
         const parsedData = SearchRequestSchema.parse(body);
 
         const newJob = await prisma.searchJob.create({
             data: {
-                userId: parsedData.userId,
+                userId: userId,
                 query_params: parsedData,
                 status: "pending",
                 progress: 0,
@@ -28,7 +37,7 @@ export async function POST(req: Request) {
             }
         });
 
-        const { userId, location, solutionFocus, ratingLimit, websiteStatus } = parsedData;
+        const { location, solutionFocus, ratingLimit, websiteStatus } = parsedData;
 
         await addLeadSearchJob({
             jobId: newJob.id,
