@@ -29,7 +29,7 @@ export function createLeadSearchWorker(): Worker<
       return result;
     },
     {
-      connection: connection as any,
+      connection: connection as never,
       concurrency: 3,
       limiter: {
         max: 10,

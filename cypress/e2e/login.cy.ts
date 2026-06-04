@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-expressions */
 describe('Auth Test Suite', () => {
     const testRunId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const testEmail = `auth-test-${testRunId}@test.com`;

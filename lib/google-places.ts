@@ -29,7 +29,7 @@ export const googlePlacesService = {
 
         const data = await response.json();
 
-        return (data.places || []).map((place: any) => ({
+        return (data.places || []).map((place: { id: string }) => ({
             place_id: place.id,
         }));
     },

@@ -27,7 +27,7 @@ export async function rateLimit(ip: string, limit = 5, duration = 60): Promise<{
     await redis.quit();
     
     return { success: true };
-  } catch (error) {
+  } catch {
     // Fallback to in-memory rate limiting
     const now = Date.now();
     const key = ip;

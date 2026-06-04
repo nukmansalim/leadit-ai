@@ -76,11 +76,12 @@ Format JSON wajib:
 
         return JSON.parse(rawResponse);
 
-    } catch (error: any) {
-        console.error("❌ Groq AI SDK Analysis Error:", error.message);
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error("❌ Groq AI SDK Analysis Error:", errorMessage);
         return {
             score: "Low",
-            reason: `Gagal dianalisis karena kendala API Groq: ${error.message}`,
+            reason: `Gagal dianalisis karena kendala API Groq: ${errorMessage}`,
             whatsapp: null,
         };
     }

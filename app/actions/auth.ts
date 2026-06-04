@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
-export async function registerAction(data: any) {
+export async function registerAction(data: unknown) {
   let isSuccess = false;
   let errorMessage: string | null = null;
 
@@ -31,7 +31,7 @@ export async function registerAction(data: any) {
       });
       isSuccess = true;
     }
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof z.ZodError) {
       errorMessage = error.issues[0]?.message || "Input tidak valid.";
     } else {

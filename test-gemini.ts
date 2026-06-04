@@ -21,7 +21,7 @@ async function testGemini() {
 
         if (data.models) {
             console.log("✅ API Key Valid. Model yang tersedia:");
-            data.models.forEach((m: any) => {
+            data.models.forEach((m: { name: string; supportedGenerationMethods: unknown }) => {
                 if (m.name.includes("flash") || m.name.includes("pro")) {
                     console.log(`   - ${m.name} (Support: ${m.supportedGenerationMethods})`);
                 }
@@ -41,9 +41,10 @@ async function testGemini() {
         const result = await model.generateContent("Halo, apakah kamu aktif? Jawab singkat saja.");
         const response = await result.response;
         console.log("✅ Respon Gemini:", response.text());
-    } catch (e: any) {
+    } catch (e) {
         console.error("❌ Gagal panggil gemini-1.5-flash:");
-        console.error("   Pesan Error:", e.message);
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        console.error("   Pesan Error:", errorMessage);
     }
 }
 

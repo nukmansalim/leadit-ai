@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
 import { registerAction } from "@/app/actions/auth";
 import {
     AuthShell,
@@ -12,7 +11,6 @@ import {
 } from "@/components";
 
 export default function RegisterForm() {
-    const router = useRouter();
     const [name, setName] = useState("");
     const [companyName, setCompanyName] = useState("");
     const [email, setEmail] = useState("");
@@ -41,8 +39,8 @@ export default function RegisterForm() {
             } else {
                 setSuccess("Akun Berhasil Dibuat! Mengalihkan ke halaman login...");
             }
-        } catch (err: any) {
-            setError(err.message || "Gagal membuat akun.");
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Gagal membuat akun.");
         } finally {
             setLoading(false);
         }

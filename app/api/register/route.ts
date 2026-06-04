@@ -70,7 +70,7 @@ export async function POST(req: Request) {
             }
         }, { status: 201 });
 
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error in API register route:", error);
         return NextResponse.json({ message: "Terjadi kesalahan internal pada server" }, { status: 500 });
     }

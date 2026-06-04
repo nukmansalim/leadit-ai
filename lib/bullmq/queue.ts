@@ -29,7 +29,7 @@ export const leadSearchQueue = new Queue<
   LeadSearchJobData,
   LeadSearchJobResult
 >(LEAD_SEARCH_QUEUE_NAME, {
-  connection: connection as any,
+  connection: connection as never,
   defaultJobOptions,
 });
 

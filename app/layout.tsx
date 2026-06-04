@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Providers } from "./providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,7 +15,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Leadit Intelligence — AI-Powered Sales Intelligence",
-  description: "Temukan lead berkualitas tinggi, analisis pasar, dan tingkatkan konversi penjualan Anda dengan kecerdasan buatan.",
+  description:
+    "Temukan lead berkualitas tinggi, analisis pasar, dan tingkatkan konversi penjualan Anda dengan kecerdasan buatan.",
 };
 
 export default function RootLayout({
@@ -23,11 +25,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="id" suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

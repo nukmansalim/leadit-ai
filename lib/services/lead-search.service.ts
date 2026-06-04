@@ -16,8 +16,12 @@ export async function runLeadSearch(
   data: LeadSearchJobData,
   options?: { onProgress?: (progress: number) => Promise<void> }
 ): Promise<LeadSearchJobResult> {
-  const { jobId, userId, location, solutionFocus } = data;
-
+ const { jobId, userId, location, solutionFocus, ratingLimit, websiteStatus } =
+  data;
+const maxRating =
+  typeof ratingLimit === "string" && ratingLimit.trim()
+    ? Number(ratingLimit)
+    : undefined;
   try {
     if (options?.onProgress) {
       await options.onProgress(5);
@@ -69,6 +73,32 @@ export async function runLeadSearch(
 
         console.log(`🤖 Menganalisis: ${minimalBusinessData.nama} (${minimalBusinessData.kategori})`);
 
+        const shouldSkipByRating =
+  typeof maxRating === "number" &&
+  Number.isFinite(maxRating) &&
+  minimalBusinessData.rating !== null &&
+  minimalBusinessData.rating > maxRating;
+
+const shouldSkipByWebsite =
+  typeof websiteStatus === "boolean" &&
+  minimalBusinessData.has_website !== websiteStatus;
+
+if (shouldSkipByRating || shouldSkipByWebsite) {
+  processedCount++;
+
+  const progress = Math.floor(15 + (processedCount / businesses.length) * 80);
+
+  if (options?.onProgress) {
+    await options.onProgress(progress);
+  }
+
+  await prisma.searchJob.update({
+    where: { id: jobId },
+    data: { progress },
+  });
+
+  continue;
+}
         const analysis = await analyzeLeadWithLLM({ business: minimalBusinessData, solutionFocus });
         const validated = LeadAnalysisSchema.parse(analysis);
 
@@ -80,12 +110,19 @@ export async function runLeadSearch(
             },
           },
           update: {
-            jobId: jobId,
+            jobId,
             ai_lead_score: validated.score,
             ai_analysis_reason: validated.reason,
-            formatted_whatsapp: validated.whatsapp ? `https://wa.me/${validated.whatsapp}` : null,
+            formatted_whatsapp: validated.whatsapp
+              ? `https://wa.me/${validated.whatsapp}`
+              : null,
             business_name: minimalBusinessData.nama,
             address: details.formattedAddress,
+            rating: minimalBusinessData.rating,
+            total_reviews: minimalBusinessData.total_review,
+            website: details.websiteUri,
+            phone: details.nationalPhoneNumber,
+            raw_data: details as any,
           },
           create: {
             jobId: jobId,
@@ -138,10 +175,11 @@ export async function runLeadSearch(
       totalLeads: processedCount,
     };
 
-  } catch (jobError: any) {
+  } catch (jobError) {
+    const errorMessage = jobError instanceof Error ? jobError.message : "Terjadi kesalahan internal";
     await prisma.searchJob.update({
       where: { id: jobId },
-      data: { status: "failed", error_message: jobError.message || "Terjadi kesalahan internal" },
+      data: { status: "failed", error_message: errorMessage },
     });
     throw jobError;
   }
