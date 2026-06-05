@@ -29,7 +29,8 @@ export function createLeadSearchWorker(): Worker<
       return result;
     },
     {
-      connection: connection as never,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      connection: connection as any,
       concurrency: 3,
       limiter: {
         max: 10,

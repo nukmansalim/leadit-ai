@@ -2,42 +2,43 @@
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 import Credentials from "next-auth/providers/credentials"
-import bcrpyt from "bcryptjs"
+import bcrypt from "bcryptjs"
 import NextAuth from "next-auth"
+import { LoginSchema } from "@/lib/validations/auth"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     adapter: PrismaAdapter(prisma),
     session: { strategy: "jwt" },
     providers: [
         Credentials({
-
             credentials: {
                 email: { label: "Email", type: "email" },
                 password: { label: "Password", type: "password" }
             },
-
             async authorize(credentials) {
-                if (!credentials?.email || !credentials?.password) return null;
-
-
-                const user = await prisma.user.findUnique({
-                    where: { email: credentials.email as string }
-                });
-
-
-                if (!user || !user.password) {
-                    throw new Error("User tidak ditemukan");
+                const parsed = LoginSchema.safeParse(credentials);
+                if (!parsed.success) {
+                    throw new Error("Email atau password tidak valid");
                 }
 
-                const isPasswordValid = await bcrpyt.compare(
-                    credentials.password as string,
+                const { email, password } = parsed.data;
+
+                const user = await prisma.user.findUnique({
+                    where: { email }
+                });
+
+                if (!user || !user.password) {
+                    throw new Error("Email atau password salah");
+                }
+
+                const isPasswordValid = await bcrypt.compare(
+                    password,
                     user.password
                 );
 
                 if (!isPasswordValid) {
-                    throw new Error("Password salah");
+                    throw new Error("Email atau password salah");
                 }
-
 
                 return {
                     id: user.id,

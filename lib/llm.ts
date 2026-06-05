@@ -1,24 +1,35 @@
 import OpenAI from "openai";
 import { MinimalBusinessInput } from "@/types/business";
+import { retryWithBackoff } from "./utils/resilience";
 
-const apiKey = process.env.GROQ_API_KEY;
-
-if (!apiKey) {
-    throw new Error("GROQ_API_KEY belum dipasang di file .env");
+export class LLMServiceError extends Error {
+  constructor(message: string, public readonly details?: unknown) {
+    super(message);
+    this.name = "LLMServiceError";
+  }
 }
-
-const client = new OpenAI({
-    apiKey,
-    baseURL: "https://api.groq.com/openai/v1",
-});
 
 interface AnalyzeParams {
-    business: MinimalBusinessInput;
-    solutionFocus: string;
+  business: MinimalBusinessInput;
+  solutionFocus: string;
 }
 
-export async function analyzeLeadWithLLM({ business, solutionFocus }: AnalyzeParams) {
-    const prompt = `
+export interface LeadAnalysisResult {
+  score: "High" | "Medium" | "Low";
+  reason: string;
+  whatsapp: string | null;
+}
+
+function getApiKey(): string {
+  const key = process.env.GROQ_API_KEY;
+  if (!key) {
+    throw new LLMServiceError("GROQ_API_KEY belum dipasang di file .env");
+  }
+  return key;
+}
+
+export async function analyzeLeadWithLLM({ business, solutionFocus }: AnalyzeParams): Promise<LeadAnalysisResult> {
+  const prompt = `
 Anda adalah Sales Intelligence Agent untuk analisis B2B lead.
 
 DATA BISNIS (Ramping):
@@ -52,37 +63,68 @@ Format JSON wajib:
 }
 `.trim();
 
-    try {
-        const result = await client.chat.completions.create({
-            model: "qwen/qwen3-32b",
-            messages: [
-                {
-                    role: 'system',
-                    content: "Anda adalah sistem analitik yang HANYA mengeluarkan output berupa JSON valid. Dilarang keras memberikan teks pengantar atau penutup.",
-                },
-                {
-                    role: "user",
-                    content: prompt
-                }
-            ],
-            response_format: { type: "json_object" }
+  try {
+    return await retryWithBackoff(async () => {
+      const apiKey = getApiKey();
+      
+      const client = new OpenAI({
+        apiKey,
+        baseURL: "https://api.groq.com/openai/v1",
+      });
+
+      let result;
+      try {
+        result = await client.chat.completions.create({
+          model: "qwen/qwen3-32b",
+          messages: [
+            {
+              role: 'system',
+              content: "Anda adalah sistem analitik yang HANYA mengeluarkan output berupa JSON valid. Dilarang keras memberikan teks pengantar atau penutup.",
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          response_format: { type: "json_object" }
         });
+      } catch (apiError: unknown) {
+        throw new LLMServiceError(
+          `Groq API Request failed: ${apiError instanceof Error ? apiError.message : String(apiError)}`,
+          apiError
+        );
+      }
 
-        const rawResponse = result.choices[0].message.content;
+      const rawResponse = result.choices[0]?.message?.content;
 
-        if (!rawResponse) {
-            throw new Error("Groq AI tidak memberikan respons teks.");
+      if (!rawResponse) {
+        throw new LLMServiceError("Groq AI tidak memberikan respons teks.");
+      }
+
+      try {
+        const parsed = JSON.parse(rawResponse);
+        if (!parsed.score || !parsed.reason) {
+          throw new Error("Missing required fields in LLM response");
         }
-
-        return JSON.parse(rawResponse);
-
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error("❌ Groq AI SDK Analysis Error:", errorMessage);
-        return {
-            score: "Low",
-            reason: `Gagal dianalisis karena kendala API Groq: ${errorMessage}`,
-            whatsapp: null,
-        };
-    }
+        return parsed as LeadAnalysisResult;
+      } catch (parseError: unknown) {
+        throw new LLMServiceError(
+          `Failed to parse LLM JSON response: ${parseError instanceof Error ? parseError.message : String(parseError)}. Raw response: ${rawResponse}`,
+          parseError
+        );
+      }
+    });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorDetails = error instanceof LLMServiceError ? error.details : "";
+    
+    console.error("❌ Groq AI SDK Analysis Error:", errorMessage, errorDetails || "");
+    
+    // Return a user-friendly generic reason instead of raw stack/API details
+    return {
+      score: "Low",
+      reason: "Gagal menganalisis profil bisnis saat menghubungi layanan AI. Silakan coba beberapa saat lagi.",
+      whatsapp: null,
+    };
+  }
 }

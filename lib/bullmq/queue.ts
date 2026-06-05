@@ -27,9 +27,11 @@ const defaultJobOptions: JobsOptions = {
 
 export const leadSearchQueue = new Queue<
   LeadSearchJobData,
-  LeadSearchJobResult
+  LeadSearchJobResult,
+  string
 >(LEAD_SEARCH_QUEUE_NAME, {
-  connection: connection as never,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  connection: connection as any,
   defaultJobOptions,
 });
 
