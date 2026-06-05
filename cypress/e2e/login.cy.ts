@@ -118,6 +118,7 @@ describe('Auth Test Suite', () => {
             cy.wait('@credentialsReq').then((interception) => {
                 const responseBody = interception.response?.body;
                 if (responseBody) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const verifyMinimization = (obj: any) => {
                         if (!obj || typeof obj !== 'object') return;
 

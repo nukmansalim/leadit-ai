@@ -22,5 +22,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ jobId: s
         return NextResponse.json({ error: "Job tidak ditemukan" }, { status: 404 });
     }
 
-    return NextResponse.json(job);
+    return NextResponse.json({
+      ...job,
+      created_at: job.created_at.toISOString(),
+      updated_at: job.updated_at.toISOString(),
+      leads: job.leads.map((lead) => ({
+        ...lead,
+        created_at: lead.created_at.toISOString(),
+      })),
+    });
 }

@@ -122,6 +122,7 @@ if (shouldSkipByRating || shouldSkipByWebsite) {
             total_reviews: minimalBusinessData.total_review,
             website: details.websiteUri,
             phone: details.nationalPhoneNumber,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             raw_data: details as any,
           },
           create: {
@@ -137,6 +138,7 @@ if (shouldSkipByRating || shouldSkipByWebsite) {
             formatted_whatsapp: validated.whatsapp ? `https://wa.me/${validated.whatsapp}` : null,
             ai_lead_score: validated.score,
             ai_analysis_reason: validated.reason,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             raw_data: details as any,
           }
         });
