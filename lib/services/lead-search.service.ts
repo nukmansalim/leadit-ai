@@ -59,6 +59,11 @@ const maxRating =
 
     for (const business of businesses) {
       try {
+        // Throttling/Sleep Logic: Add dynamic/polite delay of 1.5 seconds between requests to prevent 429 errors from Google and LLM APIs
+        if (processedCount > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+
         const details = await googlePlacesService.getPlaceDetails(business.place_id);
 
         const minimalBusinessData: MinimalBusinessInput = {

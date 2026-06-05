@@ -1,5 +1,3 @@
-import React from "react";
-
 export interface Feature {
   title: string;
   desc: string;
