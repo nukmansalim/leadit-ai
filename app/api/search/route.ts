@@ -35,7 +35,6 @@ export async function POST(req: Request) {
       userId: session.user.id,
       location: parsedData.location,
       solutionFocus: parsedData.solutionFocus,
-      ratingLimit: parsedData.ratingLimit,
       websiteStatus: parsedData.websiteStatus,
       digitalWeaknesses: parsedData.digitalWeaknesses,
     });

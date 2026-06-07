@@ -58,7 +58,6 @@ export function CreateSearchJobCard({ onCreated }: CreateSearchJobCardProps) {
     const parsed = createSearchJobSchema.safeParse({
       location: formData.get("location"),
       solutionFocus: targetCategory,
-      ratingLimit: formData.get("ratingLimit"),
       digitalWeaknesses: weaknesses,
     });
 
@@ -135,19 +134,6 @@ export function CreateSearchJobCard({ onCreated }: CreateSearchJobCardProps) {
                 <span>Doesn&apos;t use POS / Cash-only clues</span>
               </label>
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="ratingLimit">Rating limit</Label>
-            <Input
-              id="ratingLimit"
-              name="ratingLimit"
-              type="number"
-              min="0"
-              max="5"
-              step="0.1"
-              placeholder="4.0"
-            />
           </div>
 
           {errorMessage ? (

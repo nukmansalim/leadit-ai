@@ -16,11 +16,6 @@ export const leadFiltersSchema = z.object({
 export const createSearchJobSchema = z.object({
   location: z.string().trim().min(3, "Location must be at least 3 characters."),
   solutionFocus: z.string().trim().min(1, "Solution focus is required."),
-  ratingLimit: z
-    .string()
-    .trim()
-    .optional()
-    .transform((value) => (value ? value : undefined)),
   websiteStatus: z.boolean().optional(),
   digitalWeaknesses: z.array(z.string()).optional(),
 });

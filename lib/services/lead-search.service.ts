@@ -51,12 +51,8 @@ export async function runLeadSearch(
   data: LeadSearchJobData,
   options?: { onProgress?: (progress: number) => Promise<void> }
 ): Promise<LeadSearchJobResult> {
- const { jobId, userId, location, solutionFocus, ratingLimit, websiteStatus, digitalWeaknesses } =
+ const { jobId, userId, location, solutionFocus, websiteStatus, digitalWeaknesses } =
   data;
-const maxRating =
-  typeof ratingLimit === "string" && ratingLimit.trim()
-    ? Number(ratingLimit)
-    : undefined;
   try {
     if (options?.onProgress) {
       await options.onProgress(5);
@@ -132,17 +128,11 @@ const maxRating =
           }
         }
 
-        const shouldSkipByRating =
-          typeof maxRating === "number" &&
-          Number.isFinite(maxRating) &&
-          minimalBusinessData.rating !== null &&
-          minimalBusinessData.rating > maxRating;
-
         const shouldSkipByWebsite =
           typeof websiteStatus === "boolean" &&
           minimalBusinessData.has_website !== websiteStatus;
 
-        if (staticSkip || shouldSkipByRating || shouldSkipByWebsite) {
+        if (staticSkip || shouldSkipByWebsite) {
           processedCount++;
 
           const progress = Math.floor(15 + (processedCount / businesses.length) * 80);
