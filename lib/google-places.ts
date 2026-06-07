@@ -88,6 +88,7 @@ export const googlePlacesService = {
       }
 
       const data = await response.json() as { places?: { id: string }[] };
+      console.log("🔍 [Google Places API] searchText response:", JSON.stringify(data, null, 2));
       const places = data.places || [];
 
       return places.map((place) => ({
@@ -129,8 +130,11 @@ export const googlePlacesService = {
           errorDetails
         );
       }
+console.log("Google Places API response:", { placeId, details: await response.json() });
+      const data = await response.json() as PlaceDetailsResult;
+      console.log(`ℹ️ [Google Places API] getPlaceDetails response for ${placeId}:`, JSON.stringify(data, null, 2));
+      return data;
 
-      return await response.json() as PlaceDetailsResult;
     });
   }
 };
