@@ -57,6 +57,7 @@ export async function createSearchJob(input: {
   solutionFocus: string;
   ratingLimit?: string;
   websiteStatus?: boolean;
+  digitalWeaknesses?: string[];
 }): Promise<CreateSearchJobResponse> {
   const response = await fetch("/api/search", {
     method: "POST",

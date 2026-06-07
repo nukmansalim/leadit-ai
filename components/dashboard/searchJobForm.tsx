@@ -30,8 +30,15 @@ type CreateSearchJobCardProps = {
 
 export function CreateSearchJobCard({ onCreated }: CreateSearchJobCardProps) {
   const queryClient = useQueryClient();
-  const [websiteStatus, setWebsiteStatus] = useState<string>("any");
+  const [targetCategory, setTargetCategory] = useState<string>("cafe");
+  const [weaknesses, setWeaknesses] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const toggleWeakness = (val: string) => {
+    setWeaknesses((prev) =>
+      prev.includes(val) ? prev.filter((w) => w !== val) : [...prev, val]
+    );
+  };
 
   const mutation = useMutation({
     mutationFn: createSearchJob,
@@ -50,14 +57,9 @@ export function CreateSearchJobCard({ onCreated }: CreateSearchJobCardProps) {
   function handleSubmit(formData: FormData) {
     const parsed = createSearchJobSchema.safeParse({
       location: formData.get("location"),
-      solutionFocus: formData.get("solutionFocus"),
+      solutionFocus: targetCategory,
       ratingLimit: formData.get("ratingLimit"),
-      websiteStatus:
-        websiteStatus === "has-website"
-          ? true
-          : websiteStatus === "missing-website"
-            ? false
-            : undefined,
+      digitalWeaknesses: weaknesses,
     });
 
     if (!parsed.success) {
@@ -87,27 +89,52 @@ export function CreateSearchJobCard({ onCreated }: CreateSearchJobCardProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="solutionFocus">Solution focus</Label>
-            <Input
-              id="solutionFocus"
-              name="solutionFocus"
-              placeholder="Pembuatan Website UMKM"
-              autoComplete="off"
-            />
+            <Label>Target F&B category</Label>
+            <Select value={targetCategory} onValueChange={setTargetCategory}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select F&B category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cafe">Cafe / Coffee Shop</SelectItem>
+                <SelectItem value="rumah makan">Rumah Makan / Warung</SelectItem>
+                <SelectItem value="restaurant">Restaurant / Restoran</SelectItem>
+                <SelectItem value="bakery">Bakery / Toko Roti</SelectItem>
+                <SelectItem value="catering">Catering</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
-            <Label>Website status</Label>
-            <Select value={websiteStatus} onValueChange={setWebsiteStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="Any website status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="any">Any</SelectItem>
-                <SelectItem value="missing-website">Missing website</SelectItem>
-                <SelectItem value="has-website">Has website</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label>Digital Weaknesses (AND filter)</Label>
+            <div className="space-y-2 rounded-xl border p-3 bg-muted/20">
+              <label className="flex items-center space-x-2.5 cursor-pointer text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={weaknesses.includes("no-website")}
+                  onChange={() => toggleWeakness("no-website")}
+                  className="rounded border-input text-primary focus:ring-ring h-4 w-4 accent-primary"
+                />
+                <span>Doesn&apos;t have a website</span>
+              </label>
+              <label className="flex items-center space-x-2.5 cursor-pointer text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={weaknesses.includes("no-instagram")}
+                  onChange={() => toggleWeakness("no-instagram")}
+                  className="rounded border-input text-primary focus:ring-ring h-4 w-4 accent-primary"
+                />
+                <span>Doesn&apos;t have Instagram on Maps</span>
+              </label>
+              <label className="flex items-center space-x-2.5 cursor-pointer text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={weaknesses.includes("no-pos")}
+                  onChange={() => toggleWeakness("no-pos")}
+                  className="rounded border-input text-primary focus:ring-ring h-4 w-4 accent-primary"
+                />
+                <span>Doesn&apos;t use POS / Cash-only clues</span>
+              </label>
+            </div>
           </div>
 
           <div className="space-y-2">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { CreateSearchJobCard } from "./searchJobForm";
 import { JobProgressPanel } from "./jobProgressPanel";
 import { LeadsTable } from "./leadsTable";
@@ -39,6 +39,24 @@ export function DashboardShell({
   const jobs = leadsQuery.data.jobs;
   const leads = leadsQuery.data.leads;
 
+  const handleCreated = useCallback((jobId: string) => {
+    setActiveJobId(jobId);
+    setFilters((current) => ({ ...current, jobId }));
+  }, []);
+
+  const handleSelectJob = useCallback((jobId: string) => {
+    setActiveJobId(jobId);
+    setFilters((current) => ({ ...current, jobId }));
+  }, []);
+
+  const handleCompleted = useCallback(() => {
+    void leadsQuery.refetch();
+  }, [leadsQuery]);
+
+  const handleRefresh = useCallback(() => {
+    void leadsQuery.refetch();
+  }, [leadsQuery]);
+
   return (
     <main className="min-h-screen bg-muted/40 px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-8">
@@ -59,22 +77,14 @@ export function DashboardShell({
 
         <section className="grid gap-6 lg:grid-cols-[420px_1fr]">
           <CreateSearchJobCard
-            onCreated={(jobId) => {
-              setActiveJobId(jobId);
-              setFilters((current) => ({ ...current, jobId }));
-            }}
+            onCreated={handleCreated}
           />
 
           <JobProgressPanel
             jobs={jobs}
             activeJobId={activeJobId}
-            onSelectJob={(jobId) => {
-              setActiveJobId(jobId);
-              setFilters((current) => ({ ...current, jobId }));
-            }}
-            onCompleted={() => {
-              void leadsQuery.refetch();
-            }}
+            onSelectJob={handleSelectJob}
+            onCompleted={handleCompleted}
           />
         </section>
 
@@ -84,7 +94,7 @@ export function DashboardShell({
           filters={filters}
           isLoading={leadsQuery.isFetching}
           onFiltersChange={setFilters}
-          onRefresh={() => void leadsQuery.refetch()}
+          onRefresh={handleRefresh}
         />
       </div>
     </main>

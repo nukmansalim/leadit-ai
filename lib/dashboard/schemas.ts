@@ -22,6 +22,7 @@ export const createSearchJobSchema = z.object({
     .optional()
     .transform((value) => (value ? value : undefined)),
   websiteStatus: z.boolean().optional(),
+  digitalWeaknesses: z.array(z.string()).optional(),
 });
 
 export type LeadFiltersInput = z.infer<typeof leadFiltersSchema>;

@@ -18,6 +18,8 @@ export interface LeadAnalysisResult {
   score: "High" | "Medium" | "Low";
   reason: string;
   whatsapp: string | null;
+  no_instagram: boolean;
+  no_pos: boolean;
 }
 
 function getApiKey(): string {
@@ -29,6 +31,26 @@ function getApiKey(): string {
 }
 
 export async function analyzeLeadWithLLM({ business, solutionFocus }: AnalyzeParams): Promise<LeadAnalysisResult> {
+  let mappedSolution = solutionFocus;
+  const lowerFocus = solutionFocus.toLowerCase();
+  if (lowerFocus === "cafe") {
+    mappedSolution = "Pembuatan website UMKM, menu QR digital, dan sistem online ordering untuk meningkatkan kunjungan cafe.";
+  } else if (lowerFocus === "rumah makan") {
+    mappedSolution = "Pembuatan website sederhana, digitalisasi menu, dan optimasi Google Maps/profil bisnis untuk rumah makan.";
+  } else if (lowerFocus === "restaurant" || lowerFocus === "restoran") {
+    mappedSolution = "Pembuatan website profesional, sistem reservasi meja online, dan integrasi digital menu untuk restoran.";
+  } else if (lowerFocus === "bakery") {
+    mappedSolution = "Pembuatan website katalog roti, sistem pre-order online/delivery, dan optimasi Google Maps.";
+  } else if (lowerFocus === "catering") {
+    mappedSolution = "Pembuatan website profil usaha catering, sistem paket menu, form pemesanan online, dan review pelanggan.";
+  } else {
+    mappedSolution = `Pembuatan website, digital menu QR, dan sistem reservasi/pemesanan online untuk meningkatkan kehadiran digital bisnis ${solutionFocus}.`;
+  }
+
+  const reviewsContext = business.reviews && business.reviews.length > 0 
+    ? `\nULASAN PELANGGAN (Top 5):\n${business.reviews.map((r, i) => `${i+1}. "${r}"`).join("\n")}`
+    : "\nULASAN PELANGGAN: Tidak ada ulasan.";
+
   const prompt = `
 Anda adalah Sales Intelligence Agent untuk analisis B2B lead.
 
@@ -37,16 +59,22 @@ DATA BISNIS (Ramping):
 - Kategori/Tipe: ${business.kategori || "Tidak diketahui"}
 - Rating Google: ${business.rating ?? "Tidak ada"}
 - Total Ulasan: ${business.total_review ?? 0}
-- Sudah Punya Website: ${business.has_website ? "Ya" : "Tidak"}
+- Sudah Punya Website Custom (Bukan Instagram): ${business.has_website ? "Ya" : "Tidak"}
+- Website URL di Profil: ${business.website_url || "Tidak ada"}
 - Memiliki Nomor HP/Kontak: ${business.has_phone_number ? "Ya" : "Tidak"}
+${reviewsContext}
 
 SOLUSI YANG DITAWARKAN:
-"${solutionFocus}"
+"${mappedSolution}"
 
 ATURAN PENILAIAN:
-1. Score "High" jika bisnis sangat relevan dengan solusi dan punya kelemahan digital, seperti belum punya website, kontak kurang jelas, atau butuh sistem operasional.
+1. Score "High" jika bisnis sangat relevan dengan solusi dan punya kelemahan digital, seperti belum punya website, kontak kurang jelas, atau butuh sistem operasional/POS.
 2. Score "Medium" jika bisnis relevan, tetapi sudah punya fondasi digital dasar.
 3. Score "Low" jika bisnis tidak relevan dengan solusi.
+
+ATURAN ANALISIS DIGITAL:
+- Tentukan apakah bisnis ini TIDAK memiliki Instagram yang ditautkan di profil (jika website URL bukan instagram.com, dan tidak ada ulasan/indikasi instagram, set no_instagram = true).
+- Tentukan apakah bisnis ini TIDAK menerapkan sistem POS/Kasir digital / Cash-only (set no_pos = true jika ulasan pelanggan mengeluhkan 'hanya menerima tunai', 'tidak bisa QRIS/debit', atau jika bisnis ini adalah warung/kaki lima kecil yang biasanya cash-only).
 
 ATURAN OUTPUT:
 - Jawab hanya JSON murni.
@@ -59,7 +87,9 @@ Format JSON wajib:
 {
   "score": "High",
   "reason": "Alasan singkat dalam Bahasa Indonesia.",
-  "whatsapp": "628xxx atau null"
+  "whatsapp": "628xxx atau null",
+  "no_instagram": true/false,
+  "no_pos": true/false
 }
 `.trim();
 
@@ -103,10 +133,16 @@ Format JSON wajib:
 
       try {
         const parsed = JSON.parse(rawResponse);
-        if (!parsed.score || !parsed.reason) {
+        if (parsed.score === undefined || parsed.reason === undefined) {
           throw new Error("Missing required fields in LLM response");
         }
-        return parsed as LeadAnalysisResult;
+        return {
+          score: parsed.score,
+          reason: parsed.reason,
+          whatsapp: parsed.whatsapp,
+          no_instagram: !!parsed.no_instagram,
+          no_pos: !!parsed.no_pos,
+        } as LeadAnalysisResult;
       } catch (parseError: unknown) {
         throw new LLMServiceError(
           `Failed to parse LLM JSON response: ${parseError instanceof Error ? parseError.message : String(parseError)}. Raw response: ${rawResponse}`,
@@ -119,12 +155,6 @@ Format JSON wajib:
     const errorDetails = error instanceof LLMServiceError ? error.details : "";
     
     console.error("❌ Groq AI SDK Analysis Error:", errorMessage, errorDetails || "");
-    
-    // Return a user-friendly generic reason instead of raw stack/API details
-    return {
-      score: "Low",
-      reason: "Gagal menganalisis profil bisnis saat menghubungi layanan AI. Silakan coba beberapa saat lagi.",
-      whatsapp: null,
-    };
+    throw error;
   }
 }

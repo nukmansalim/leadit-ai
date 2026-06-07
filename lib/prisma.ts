@@ -5,7 +5,16 @@ import "dotenv/config";
 
 const connectionString = process.env.DATABASE_URL;
 
-const pool = new Pool({ connectionString });
+const isWorker = typeof process !== "undefined" && process.argv && process.argv.some((arg) => arg.includes("worker-runner"));
+const defaultMax = isWorker ? 3 : 5;
+const maxPoolSize = process.env.DB_POOL_MAX 
+  ? parseInt(process.env.DB_POOL_MAX, 10) 
+  : defaultMax;
+
+const pool = new Pool({ 
+  connectionString,
+  max: maxPoolSize,
+});
 const adapter = new PrismaPg(pool);
 
 const globalForPrisma = globalThis as unknown as {

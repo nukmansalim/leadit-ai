@@ -37,6 +37,7 @@ export async function POST(req: Request) {
       solutionFocus: parsedData.solutionFocus,
       ratingLimit: parsedData.ratingLimit,
       websiteStatus: parsedData.websiteStatus,
+      digitalWeaknesses: parsedData.digitalWeaknesses,
     });
 
     return NextResponse.json(

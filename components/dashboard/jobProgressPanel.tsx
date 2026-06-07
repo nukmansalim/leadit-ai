@@ -4,7 +4,7 @@ import { fetchSearchJob } from "@/lib/dashboard/queries";
 import type { DashboardSearchJob } from "@/lib/dashboard/types";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, Loader2 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -38,6 +38,7 @@ export function JobProgressPanel({
   onSelectJob,
   onCompleted,
 }: JobProgressPanelProps) {
+  const completedJobIdsRef = useRef<Set<string>>(new Set());
   const activeJobFromList = jobs.find((job) => job.id === activeJobId) ?? null;
 
   const jobQuery = useQuery({
@@ -55,12 +56,15 @@ export function JobProgressPanel({
   const activeJob = jobQuery.data ?? activeJobFromList;
 
   useEffect(() => {
-    if (!jobQuery.data) return;
+    if (!jobQuery.data || !activeJobId) return;
 
     if (["completed", "failed"].includes(jobQuery.data.status)) {
-      onCompleted();
+      if (!completedJobIdsRef.current.has(activeJobId)) {
+        completedJobIdsRef.current.add(activeJobId);
+        onCompleted();
+      }
     }
-  }, [jobQuery.data, onCompleted]);
+  }, [jobQuery.data, activeJobId, onCompleted]);
 
   return (
     <Card className="rounded-3xl">

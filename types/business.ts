@@ -6,6 +6,8 @@ export interface MinimalBusinessInput {
     total_review: number | null;
     has_website: boolean;
     has_phone_number: boolean;
+    website_url?: string;
+    reviews?: string[];
 }
 
 export interface AnalyzeParams {

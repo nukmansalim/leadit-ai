@@ -7,6 +7,7 @@ export const LeadSearchJobPayloadSchema = z.object({
   solutionFocus: z.string().trim().min(1),
   ratingLimit: z.string().trim().optional(),
   websiteStatus: z.boolean().optional(),
+  digitalWeaknesses: z.array(z.string()).optional(),
 });
 
 export type LeadSearchJobData = z.infer<typeof LeadSearchJobPayloadSchema>;
