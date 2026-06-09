@@ -1,71 +1,74 @@
+/**
+ * Lead-search orchestrator.
+ *
+ * This is a thin coordinator that wires together the pipeline stages
+ * defined in `./pipeline/`. Each stage has a single responsibility:
+ *
+ *   1. enrich   – Google Places details + review pre-filter
+ *   2. filter   – static digital-weakness / website-status checks
+ *   3. analyze  – LLM scoring + Zod validation + post-analysis filter
+ *   4. persist  – upsert the lead into PostgreSQL
+ *
+ * Error classification lives in `pipeline/errors.ts`.
+ */
+
 import { prisma } from "@/lib/prisma";
-import { googlePlacesService, GooglePlacesError } from "@/lib/google-places";
-import { analyzeLeadWithLLM, LLMServiceError } from "@/lib/llm";
-import { MinimalBusinessInput } from "@/types/business";
-import { z } from "zod";
+import { googlePlacesService } from "@/lib/google-places";
 import type { LeadSearchJobData, LeadSearchJobResult } from "@/lib/bullmq/types";
+import {
+  enrichBusiness,
+  shouldSkipBusiness,
+  analyzeBusiness,
+  persistLead,
+  isCriticalError,
+  type PipelineContext,
+  type ProgressCallback,
+} from "./pipeline";
 
-const LeadAnalysisSchema = z.object({
-  score: z.enum(["High", "Medium", "Low"]),
-  reason: z.string().min(10),
-  whatsapp: z.string().nullable(),
-  confidence: z.number().min(0).max(100).optional(),
-  no_instagram: z.boolean().optional(),
-  no_pos: z.boolean().optional(),
-  complaint_category: z.string().nullable().optional(),
-  bad_review_summary: z.string().nullable().optional(),
-  recommended_solution: z.string().nullable().optional(),
-});
+// ── Helpers ──────────────────────────────────────────────────────────
 
-function isCriticalError(err: unknown): boolean {
-  if (err instanceof GooglePlacesError) {
-    if (err.statusCode === 401 || err.statusCode === 403 || err.statusCode === 429) {
-      return true;
-    }
-  }
+const THROTTLE_MS = 1500;
 
-  if (err instanceof LLMServiceError) {
-    const msg = err.message;
-    if (msg.includes("Failed to parse") || msg.includes("Missing required fields")) {
-      return false;
-    }
-    return true;
-  }
-
-  const message = String((err as Error)?.message || "").toLowerCase();
-  if (
-    message.includes("429") ||
-    message.includes("rate limit") ||
-    message.includes("too many requests") ||
-    message.includes("unauthorized") ||
-    message.includes("401") ||
-    message.includes("403") ||
-    message.includes("fetch failed") ||
-    message.includes("econnrefused") ||
-    message.includes("enotfound")
-  ) {
-    return true;
-  }
-
-  return false;
+function computeProgress(processed: number, total: number): number {
+  return Math.floor(15 + (processed / total) * 80);
 }
+
+async function updateJobProgress(
+  jobId: string,
+  progress: number,
+  extra?: Record<string, unknown>,
+  onProgress?: ProgressCallback,
+): Promise<void> {
+  if (onProgress) {
+    await onProgress(progress);
+  }
+  await prisma.searchJob.update({
+    where: { id: jobId },
+    data: { progress, ...extra },
+  });
+}
+
+// ── Main entry point ─────────────────────────────────────────────────
 
 export async function runLeadSearch(
   data: LeadSearchJobData,
-  options?: { onProgress?: (progress: number) => Promise<void> }
+  options?: { onProgress?: ProgressCallback },
 ): Promise<LeadSearchJobResult> {
- const { jobId, userId, location, businessCategory, solutionFocus, websiteStatus, digitalWeaknesses } =
-  data;
-  try {
-    if (options?.onProgress) {
-      await options.onProgress(5);
-    }
-    await prisma.searchJob.update({
-      where: { id: jobId },
-      data: { status: "processing", progress: 5 },
-    });
+  const ctx: PipelineContext = {
+    jobId: data.jobId,
+    userId: data.userId,
+    location: data.location,
+    businessCategory: data.businessCategory,
+    solutionFocus: data.solutionFocus,
+    websiteStatus: data.websiteStatus,
+    digitalWeaknesses: data.digitalWeaknesses,
+  };
 
-    const dynamicQuery = `${businessCategory} di ${location}`;
+  try {
+    // ── Kick off ──────────────────────────────────────────────────────
+    await updateJobProgress(ctx.jobId, 5, { status: "processing" }, options?.onProgress);
+
+    const dynamicQuery = `${ctx.businessCategory} di ${ctx.location}`;
     console.log(`🔍 Mencari: ${dynamicQuery}`);
 
     const businesses = await googlePlacesService.searchText({
@@ -74,234 +77,105 @@ export async function runLeadSearch(
     });
 
     if (!businesses || businesses.length === 0) {
-      await prisma.searchJob.update({
-        where: { id: jobId },
-        data: { status: "completed", progress: 100, leads_generated: 0 },
-      });
-      return { success: true, jobId, totalBusinesses: 0, totalLeads: 0, message: "No businesses found" };
+      await updateJobProgress(ctx.jobId, 100, {
+        status: "completed",
+        leads_generated: 0,
+      }, options?.onProgress);
+      return { success: true, jobId: ctx.jobId, totalBusinesses: 0, totalLeads: 0, message: "No businesses found" };
     }
 
-    if (options?.onProgress) {
-      await options.onProgress(15);
-    }
-    await prisma.searchJob.update({
-      where: { id: jobId },
-      data: { total_businesses: businesses.length, progress: 15 },
-    });
+    await updateJobProgress(ctx.jobId, 15, {
+      total_businesses: businesses.length,
+    }, options?.onProgress);
 
+    // ── Process each business through the pipeline ────────────────────
     let processedCount = 0;
     let leadsGenerated = 0;
 
-    for (const business of businesses) {
+    for (const place of businesses) {
       try {
-        // Throttling/Sleep Logic: Add dynamic/polite delay of 1.5 seconds between requests to prevent 429 errors from Google and LLM APIs
+        // Polite delay between requests to avoid 429s
         if (processedCount > 0) {
-          await new Promise((resolve) => setTimeout(resolve, 1500));
+          await new Promise((resolve) => setTimeout(resolve, THROTTLE_MS));
         }
 
-        const details = await googlePlacesService.getPlaceDetails(business.place_id);
-
-        const websiteUrl = details.websiteUri || details.website || "";
-        const isInstagram = websiteUrl.toLowerCase().includes("instagram.com") || websiteUrl.toLowerCase().includes("instagr.am");
-        const hasCustomWebsite = !!websiteUrl && !isInstagram;
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const rawReviews = details.reviews ? (details.reviews as any[]) : [];
-        const complaintKeywords = [
-          "lambat", "lama", "slow", "antri", "antre", "menunggu", "waiting", "lemot", "queue", "delay",
-          "kecewa", "buruk", "jelek", "pelayanan", "kasir", "staf", "staff", "cuek", "sombong", "marah", "kasar", "service", "rude", "bad",
-          "tunai", "cash", "qris", "debit", "kartu", "mesin", "payment", "bayar",
-          "kotor", "bau", "bersih", "kebersihan", "lalat", "kecoa", "dirty", "smelly", "fly", "flies", "cockroach",
-          "dingin", "asin", "hambar", "raw", "mentah", "basi", "rambut", "hair", "salty", "tasteless", "cold", "consistent", "konsisten", "rasa"
-        ];
-
-        const badReviews = rawReviews.filter(r => {
-          const rRating = r.rating || 0;
-          const rText = (r.text?.text || r.text || "").toLowerCase();
-          return rRating > 0 && rRating <= 3 && complaintKeywords.some(kw => rText.includes(kw));
-        });
-
-        if (badReviews.length === 0) {
-          console.log(`⏭️ Skipping ${details.displayName?.text || details.name || "N/A"} - no bad reviews matching complaint pre-filter.`);
+        // Stage 1 – Enrich (returns null when no qualifying bad reviews)
+        const enriched = await enrichBusiness(place);
+        if (!enriched) {
           processedCount++;
-          const progress = Math.floor(15 + (processedCount / businesses.length) * 80);
-          if (options?.onProgress) {
-            await options.onProgress(progress);
-          }
-          await prisma.searchJob.update({
-            where: { id: jobId },
-            data: { progress },
-          });
+          await updateJobProgress(
+            ctx.jobId,
+            computeProgress(processedCount, businesses.length),
+            undefined,
+            options?.onProgress,
+          );
           continue;
         }
 
-        const formattedReviews = rawReviews.map(r => `Rating: ${r.rating || 0} - ${r.text?.text || r.text || ""}`).filter(Boolean);
-
-        const minimalBusinessData: MinimalBusinessInput = {
-          id: business.place_id,
-          nama: details.displayName?.text || details.name || "N/A",
-          kategori: details.primaryType || (details.types ? details.types[0] : "Business"),
-          rating: details.rating || 0,
-          total_review: details.userRatingCount || 0,
-          has_website: hasCustomWebsite,
-          has_phone_number: !!(details.nationalPhoneNumber || details.internationalPhoneNumber),
-          website_url: websiteUrl,
-          reviews: formattedReviews,
-        };
-
-        console.log(`🤖 Menganalisis: ${minimalBusinessData.nama} (${minimalBusinessData.kategori})`);
-
-        let staticSkip = false;
-        if (digitalWeaknesses && digitalWeaknesses.length > 0) {
-          if (digitalWeaknesses.includes("no-website") && hasCustomWebsite) {
-            staticSkip = true;
-          }
-          if (digitalWeaknesses.includes("no-instagram") && isInstagram) {
-            staticSkip = true;
-          }
-        }
-
-        const shouldSkipByWebsite =
-          typeof websiteStatus === "boolean" &&
-          minimalBusinessData.has_website !== websiteStatus;
-
-        if (staticSkip || shouldSkipByWebsite) {
+        // Stage 2 – Static filters
+        if (shouldSkipBusiness(enriched, ctx)) {
           processedCount++;
-
-          const progress = Math.floor(15 + (processedCount / businesses.length) * 80);
-
-          if (options?.onProgress) {
-            await options.onProgress(progress);
-          }
-
-          await prisma.searchJob.update({
-            where: { id: jobId },
-            data: { progress },
-          });
-
+          await updateJobProgress(
+            ctx.jobId,
+            computeProgress(processedCount, businesses.length),
+            undefined,
+            options?.onProgress,
+          );
           continue;
         }
 
-        const analysis = await analyzeLeadWithLLM({ business: minimalBusinessData, solutionFocus });
-        const validated = LeadAnalysisSchema.parse(analysis);
-
-        if (digitalWeaknesses && digitalWeaknesses.length > 0) {
-          if (digitalWeaknesses.includes("no-pos") && !validated.no_pos) {
-            // Business has a POS system, but user only wants those without. Skip!
-            processedCount++;
-
-            const progress = Math.floor(15 + (processedCount / businesses.length) * 80);
-
-            if (options?.onProgress) {
-              await options.onProgress(progress);
-            }
-
-            await prisma.searchJob.update({
-              where: { id: jobId },
-              data: { progress },
-            });
-
-            continue;
-          }
+        // Stage 3 – LLM analysis (returns null when post-analysis filter rejects)
+        const analyzed = await analyzeBusiness(enriched, ctx);
+        if (!analyzed) {
+          processedCount++;
+          await updateJobProgress(
+            ctx.jobId,
+            computeProgress(processedCount, businesses.length),
+            undefined,
+            options?.onProgress,
+          );
+          continue;
         }
 
-        await prisma.lead.upsert({
-          where: {
-            userId_place_id: {
-              userId: userId,
-              place_id: business.place_id,
-            },
-          },
-          update: {
-            jobId,
-            ai_lead_score: validated.score,
-            ai_analysis_reason: validated.reason,
-            complaint_category: validated.complaint_category,
-            bad_review_summary: validated.bad_review_summary,
-            recommended_solution: validated.recommended_solution,
-            confidence: validated.confidence,
-            formatted_whatsapp: validated.whatsapp
-              ? `https://wa.me/${validated.whatsapp}`
-              : null,
-            business_name: minimalBusinessData.nama,
-            address: details.formattedAddress,
-            rating: minimalBusinessData.rating,
-            total_reviews: minimalBusinessData.total_review,
-            website: details.websiteUri,
-            phone: details.nationalPhoneNumber,
-            raw_data: {
-              ...(details as unknown as Record<string, unknown>),
-              no_instagram: validated.no_instagram,
-              no_pos: validated.no_pos,
-            },
-          },
-          create: {
-            jobId: jobId,
-            userId: userId,
-            place_id: business.place_id,
-            business_name: minimalBusinessData.nama,
-            address: details.formattedAddress,
-            rating: minimalBusinessData.rating,
-            total_reviews: minimalBusinessData.total_review,
-            website: details.websiteUri,
-            phone: details.nationalPhoneNumber,
-            formatted_whatsapp: validated.whatsapp ? `https://wa.me/${validated.whatsapp}` : null,
-            ai_lead_score: validated.score,
-            ai_analysis_reason: validated.reason,
-            complaint_category: validated.complaint_category,
-            bad_review_summary: validated.bad_review_summary,
-            recommended_solution: validated.recommended_solution,
-            confidence: validated.confidence,
-            raw_data: {
-              ...(details as unknown as Record<string, unknown>),
-              no_instagram: validated.no_instagram,
-              no_pos: validated.no_pos,
-            },
-          }
-        });
+        // Stage 4 – Persist
+        await persistLead(analyzed, ctx);
 
         leadsGenerated++;
         processedCount++;
 
-        const progress = Math.floor(15 + (processedCount / businesses.length) * 80);
-        if (options?.onProgress) {
-          await options.onProgress(progress);
-        }
-
+        const progress = computeProgress(processedCount, businesses.length);
         if (processedCount % 2 === 0 || processedCount === businesses.length) {
-          await prisma.searchJob.update({
-            where: { id: jobId },
-            data: { progress, leads_generated: leadsGenerated },
-          });
+          await updateJobProgress(ctx.jobId, progress, {
+            leads_generated: leadsGenerated,
+          }, options?.onProgress);
+        } else {
+          await updateJobProgress(ctx.jobId, progress, undefined, options?.onProgress);
         }
-
       } catch (err) {
-        console.error(`❌ Gagal memproses tempat ${business.place_id}:`, err);
+        console.error(`❌ Gagal memproses tempat ${place.place_id}:`, err);
         if (isCriticalError(err)) {
           throw err;
         }
       }
     }
 
-    if (options?.onProgress) {
-      await options.onProgress(100);
-    }
-    await prisma.searchJob.update({
-      where: { id: jobId },
-      data: { status: "completed", progress: 100, leads_generated: leadsGenerated },
-    });
+    // ── Finalize ──────────────────────────────────────────────────────
+    await updateJobProgress(ctx.jobId, 100, {
+      status: "completed",
+      leads_generated: leadsGenerated,
+    }, options?.onProgress);
 
     return {
       success: true,
-      jobId,
+      jobId: ctx.jobId,
       totalBusinesses: businesses.length,
       totalLeads: leadsGenerated,
     };
-
   } catch (jobError) {
-    const errorMessage = jobError instanceof Error ? jobError.message : "Terjadi kesalahan internal";
+    const errorMessage =
+      jobError instanceof Error ? jobError.message : "Terjadi kesalahan internal";
     await prisma.searchJob.update({
-      where: { id: jobId },
+      where: { id: ctx.jobId },
       data: { status: "failed", error_message: errorMessage },
     });
     throw jobError;
