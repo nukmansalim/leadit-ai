@@ -54,6 +54,10 @@ model Lead {
   formatted_whatsapp String?
   ai_lead_score      String
   ai_analysis_reason String    @db.Text
+  complaint_category String?
+  bad_review_summary String?   @db.Text
+  recommended_solution String?  @db.Text
+  confidence          Float?
   raw_data           Json?
   created_at         DateTime  @default(now())
 

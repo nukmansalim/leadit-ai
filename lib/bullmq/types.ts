@@ -4,6 +4,7 @@ export const LeadSearchJobPayloadSchema = z.object({
   jobId: z.string(),
   userId: z.string(),
   location: z.string().trim().min(3),
+  businessCategory: z.string().trim().min(1),
   solutionFocus: z.string().trim().min(1),
   websiteStatus: z.boolean().optional(),
   digitalWeaknesses: z.array(z.string()).optional(),

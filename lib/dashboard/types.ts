@@ -27,6 +27,10 @@ export type DashboardLead = {
   formatted_whatsapp: string | null;
   ai_lead_score: "High" | "Medium" | "Low" | string;
   ai_analysis_reason: string;
+  complaint_category: string | null;
+  bad_review_summary: string | null;
+  recommended_solution: string | null;
+  confidence: number | null;
   created_at: string;
 };
 

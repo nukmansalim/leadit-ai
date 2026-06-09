@@ -54,6 +54,7 @@ export async function fetchSearchJob(jobId: string): Promise<DashboardSearchJob>
 
 export async function createSearchJob(input: {
   location: string;
+  businessCategory: string;
   solutionFocus: string;
   websiteStatus?: boolean;
   digitalWeaknesses?: string[];

@@ -31,8 +31,24 @@ type CreateSearchJobCardProps = {
 export function CreateSearchJobCard({ onCreated }: CreateSearchJobCardProps) {
   const queryClient = useQueryClient();
   const [targetCategory, setTargetCategory] = useState<string>("cafe");
+  const [solutionFocus, setSolutionFocus] = useState<string>(
+    "Pembuatan website UMKM, menu QR digital, dan sistem online ordering untuk meningkatkan kunjungan cafe."
+  );
   const [weaknesses, setWeaknesses] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const DEFAULT_SOLUTIONS: Record<string, string> = {
+    cafe: "Pembuatan website UMKM, menu QR digital, dan sistem online ordering untuk meningkatkan kunjungan cafe.",
+    "rumah makan": "Pembuatan website sederhana, digitalisasi menu, dan optimasi Google Maps/profil bisnis untuk rumah makan.",
+    restaurant: "Pembuatan website profesional, sistem reservasi meja online, dan integrasi digital menu untuk restoran.",
+    bakery: "Pembuatan website katalog roti, sistem pre-order online/delivery, dan optimasi Google Maps.",
+    catering: "Pembuatan website profil usaha catering, sistem paket menu, form pemesanan online, dan review pelanggan.",
+  };
+
+  const handleCategoryChange = (val: string) => {
+    setTargetCategory(val);
+    setSolutionFocus(DEFAULT_SOLUTIONS[val] || "");
+  };
 
   const toggleWeakness = (val: string) => {
     setWeaknesses((prev) =>
@@ -57,7 +73,8 @@ export function CreateSearchJobCard({ onCreated }: CreateSearchJobCardProps) {
   function handleSubmit(formData: FormData) {
     const parsed = createSearchJobSchema.safeParse({
       location: formData.get("location"),
-      solutionFocus: targetCategory,
+      businessCategory: targetCategory,
+      solutionFocus: solutionFocus,
       digitalWeaknesses: weaknesses,
     });
 
@@ -89,7 +106,7 @@ export function CreateSearchJobCard({ onCreated }: CreateSearchJobCardProps) {
 
           <div className="space-y-2">
             <Label>Target F&B category</Label>
-            <Select value={targetCategory} onValueChange={setTargetCategory}>
+            <Select value={targetCategory} onValueChange={handleCategoryChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select F&B category" />
               </SelectTrigger>
@@ -101,6 +118,18 @@ export function CreateSearchJobCard({ onCreated }: CreateSearchJobCardProps) {
                 <SelectItem value="catering">Catering</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="solutionFocus">Solution Focus</Label>
+            <Input
+              id="solutionFocus"
+              name="solutionFocus"
+              value={solutionFocus}
+              onChange={(e) => setSolutionFocus(e.target.value)}
+              placeholder="E.g., Pembuatan website UMKM, menu QR digital,..."
+              autoComplete="off"
+            />
           </div>
 
           <div className="space-y-2">

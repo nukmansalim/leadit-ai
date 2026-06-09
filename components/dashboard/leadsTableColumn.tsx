@@ -97,13 +97,50 @@ export const leadColumns: ColumnDef<DashboardLead>[] = [
               View reason
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>{lead.business_name}</DialogTitle>
+              <DialogTitle className="text-xl font-bold">{lead.business_name}</DialogTitle>
             </DialogHeader>
-            <p className="text-sm leading-6 text-muted-foreground">
-              {lead.ai_analysis_reason}
-            </p>
+            <div className="mt-4 space-y-4 text-sm leading-relaxed text-muted-foreground">
+              <div>
+                <h4 className="font-semibold text-foreground">AI Reason for Selection</h4>
+                <p className="mt-1">{lead.ai_analysis_reason}</p>
+              </div>
+
+              {lead.complaint_category && (
+                <div>
+                  <h4 className="font-semibold text-foreground">Complaint Category</h4>
+                  <div className="mt-1">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                      {lead.complaint_category.replace('_', ' ').toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {lead.bad_review_summary && (
+                <div>
+                  <h4 className="font-semibold text-foreground">Bad Review Summary</h4>
+                  <p className="mt-1 italic">&ldquo;{lead.bad_review_summary}&rdquo;</p>
+                </div>
+              )}
+
+              {lead.recommended_solution && (
+                <div>
+                  <h4 className="font-semibold text-foreground">Recommended Solution & Pitch Angle</h4>
+                  <p className="mt-1 text-foreground font-medium bg-primary/10 border border-primary/20 rounded-xl p-3">
+                    {lead.recommended_solution}
+                  </p>
+                </div>
+              )}
+
+              {lead.confidence !== null && lead.confidence !== undefined && (
+                <div className="flex justify-between items-center border-t pt-3 mt-2">
+                  <span className="font-semibold text-foreground">Match Confidence</span>
+                  <span className="text-foreground font-bold">{lead.confidence}%</span>
+                </div>
+              )}
+            </div>
           </DialogContent>
         </Dialog>
       );

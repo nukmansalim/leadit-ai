@@ -73,6 +73,10 @@ export async function GET(req: Request) {
       rating: true,
       total_reviews: true,
       ai_analysis_reason: true,
+      complaint_category: true,
+      bad_review_summary: true,
+      recommended_solution: true,
+      confidence: true,
     },
   });
 
@@ -85,6 +89,10 @@ export async function GET(req: Request) {
     "Google Rating",
     "Reviews",
     "AI Reason",
+    "Complaint Category",
+    "Bad Review Summary",
+    "Recommended Solution",
+    "Confidence Score",
   ];
 
   const rows = leads.map((lead) => [
@@ -96,6 +104,10 @@ export async function GET(req: Request) {
     lead.rating,
     lead.total_reviews,
     lead.ai_analysis_reason,
+    lead.complaint_category,
+    lead.bad_review_summary,
+    lead.recommended_solution,
+    lead.confidence,
   ]);
 
   const csv = [header, ...rows]

@@ -15,6 +15,7 @@ export const leadFiltersSchema = z.object({
 
 export const createSearchJobSchema = z.object({
   location: z.string().trim().min(3, "Location must be at least 3 characters."),
+  businessCategory: z.string().trim().min(1, "Business category is required."),
   solutionFocus: z.string().trim().min(1, "Solution focus is required."),
   websiteStatus: z.boolean().optional(),
   digitalWeaknesses: z.array(z.string()).optional(),

@@ -34,6 +34,7 @@ export async function POST(req: Request) {
       jobId: newJob.id,
       userId: session.user.id,
       location: parsedData.location,
+      businessCategory: parsedData.businessCategory,
       solutionFocus: parsedData.solutionFocus,
       websiteStatus: parsedData.websiteStatus,
       digitalWeaknesses: parsedData.digitalWeaknesses,

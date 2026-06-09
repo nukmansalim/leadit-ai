@@ -10,8 +10,11 @@ const LeadAnalysisSchema = z.object({
   reason: z.string().min(10),
   whatsapp: z.string().nullable(),
   confidence: z.number().min(0).max(100).optional(),
-  no_instagram: z.boolean(),
-  no_pos: z.boolean(),
+  no_instagram: z.boolean().optional(),
+  no_pos: z.boolean().optional(),
+  complaint_category: z.string().nullable().optional(),
+  bad_review_summary: z.string().nullable().optional(),
+  recommended_solution: z.string().nullable().optional(),
 });
 
 function isCriticalError(err: unknown): boolean {
@@ -51,7 +54,7 @@ export async function runLeadSearch(
   data: LeadSearchJobData,
   options?: { onProgress?: (progress: number) => Promise<void> }
 ): Promise<LeadSearchJobResult> {
- const { jobId, userId, location, solutionFocus, websiteStatus, digitalWeaknesses } =
+ const { jobId, userId, location, businessCategory, solutionFocus, websiteStatus, digitalWeaknesses } =
   data;
   try {
     if (options?.onProgress) {
@@ -62,7 +65,7 @@ export async function runLeadSearch(
       data: { status: "processing", progress: 5 },
     });
 
-    const dynamicQuery = `${solutionFocus} di ${location}`;
+    const dynamicQuery = `${businessCategory} di ${location}`;
     console.log(`🔍 Mencari: ${dynamicQuery}`);
 
     const businesses = await googlePlacesService.searchText({
@@ -87,6 +90,7 @@ export async function runLeadSearch(
     });
 
     let processedCount = 0;
+    let leadsGenerated = 0;
 
     for (const business of businesses) {
       try {
@@ -102,7 +106,36 @@ export async function runLeadSearch(
         const hasCustomWebsite = !!websiteUrl && !isInstagram;
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const reviewTexts = details.reviews ? (details.reviews as any[]).map(r => r.text?.text || r.text || "").filter(Boolean) : [];
+        const rawReviews = details.reviews ? (details.reviews as any[]) : [];
+        const complaintKeywords = [
+          "lambat", "lama", "slow", "antri", "antre", "menunggu", "waiting", "lemot", "queue", "delay",
+          "kecewa", "buruk", "jelek", "pelayanan", "kasir", "staf", "staff", "cuek", "sombong", "marah", "kasar", "service", "rude", "bad",
+          "tunai", "cash", "qris", "debit", "kartu", "mesin", "payment", "bayar",
+          "kotor", "bau", "bersih", "kebersihan", "lalat", "kecoa", "dirty", "smelly", "fly", "flies", "cockroach",
+          "dingin", "asin", "hambar", "raw", "mentah", "basi", "rambut", "hair", "salty", "tasteless", "cold", "consistent", "konsisten", "rasa"
+        ];
+
+        const badReviews = rawReviews.filter(r => {
+          const rRating = r.rating || 0;
+          const rText = (r.text?.text || r.text || "").toLowerCase();
+          return rRating > 0 && rRating <= 3 && complaintKeywords.some(kw => rText.includes(kw));
+        });
+
+        if (badReviews.length === 0) {
+          console.log(`⏭️ Skipping ${details.displayName?.text || details.name || "N/A"} - no bad reviews matching complaint pre-filter.`);
+          processedCount++;
+          const progress = Math.floor(15 + (processedCount / businesses.length) * 80);
+          if (options?.onProgress) {
+            await options.onProgress(progress);
+          }
+          await prisma.searchJob.update({
+            where: { id: jobId },
+            data: { progress },
+          });
+          continue;
+        }
+
+        const formattedReviews = rawReviews.map(r => `Rating: ${r.rating || 0} - ${r.text?.text || r.text || ""}`).filter(Boolean);
 
         const minimalBusinessData: MinimalBusinessInput = {
           id: business.place_id,
@@ -113,7 +146,7 @@ export async function runLeadSearch(
           has_website: hasCustomWebsite,
           has_phone_number: !!(details.nationalPhoneNumber || details.internationalPhoneNumber),
           website_url: websiteUrl,
-          reviews: reviewTexts,
+          reviews: formattedReviews,
         };
 
         console.log(`🤖 Menganalisis: ${minimalBusinessData.nama} (${minimalBusinessData.kategori})`);
@@ -183,6 +216,10 @@ export async function runLeadSearch(
             jobId,
             ai_lead_score: validated.score,
             ai_analysis_reason: validated.reason,
+            complaint_category: validated.complaint_category,
+            bad_review_summary: validated.bad_review_summary,
+            recommended_solution: validated.recommended_solution,
+            confidence: validated.confidence,
             formatted_whatsapp: validated.whatsapp
               ? `https://wa.me/${validated.whatsapp}`
               : null,
@@ -211,6 +248,10 @@ export async function runLeadSearch(
             formatted_whatsapp: validated.whatsapp ? `https://wa.me/${validated.whatsapp}` : null,
             ai_lead_score: validated.score,
             ai_analysis_reason: validated.reason,
+            complaint_category: validated.complaint_category,
+            bad_review_summary: validated.bad_review_summary,
+            recommended_solution: validated.recommended_solution,
+            confidence: validated.confidence,
             raw_data: {
               ...(details as unknown as Record<string, unknown>),
               no_instagram: validated.no_instagram,
@@ -219,6 +260,7 @@ export async function runLeadSearch(
           }
         });
 
+        leadsGenerated++;
         processedCount++;
 
         const progress = Math.floor(15 + (processedCount / businesses.length) * 80);
@@ -229,7 +271,7 @@ export async function runLeadSearch(
         if (processedCount % 2 === 0 || processedCount === businesses.length) {
           await prisma.searchJob.update({
             where: { id: jobId },
-            data: { progress, leads_generated: processedCount },
+            data: { progress, leads_generated: leadsGenerated },
           });
         }
 
@@ -246,14 +288,14 @@ export async function runLeadSearch(
     }
     await prisma.searchJob.update({
       where: { id: jobId },
-      data: { status: "completed", progress: 100, leads_generated: processedCount },
+      data: { status: "completed", progress: 100, leads_generated: leadsGenerated },
     });
 
     return {
       success: true,
       jobId,
       totalBusinesses: businesses.length,
-      totalLeads: processedCount,
+      totalLeads: leadsGenerated,
     };
 
   } catch (jobError) {
