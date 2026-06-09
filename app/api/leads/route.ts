@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { leadFiltersSchema } from "@/lib/dashboard/schemas";
 import { prisma } from "@/lib/prisma";
+import { rateLimit } from "@/lib/rate-limit";
 import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -73,6 +74,15 @@ export async function GET(req: Request) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
         { status: 401 },
+      );
+    }
+
+    // Rate limit: 30 reads per 60 seconds per user
+    const limitResult = await rateLimit(`leads:${session.user.id}`, 30, 60);
+    if (!limitResult.success) {
+      return NextResponse.json(
+        { success: false, message: "Too many requests. Please try again later." },
+        { status: 429 },
       );
     }
 

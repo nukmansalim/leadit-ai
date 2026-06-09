@@ -34,6 +34,19 @@ function getApiKey(): string {
   return key;
 }
 
+// ── Singleton LLM client ─────────────────────────────────────────────
+let _client: OpenAI | null = null;
+
+function getClient(): OpenAI {
+  if (!_client) {
+    _client = new OpenAI({
+      apiKey: getApiKey(),
+      baseURL: "https://api.groq.com/openai/v1",
+    });
+  }
+  return _client;
+}
+
 export let mockAnalyzeLeadWithLLM: typeof analyzeLeadWithLLM | null = null;
 export function setMockAnalyzeLeadWithLLM(mock: typeof analyzeLeadWithLLM | null) {
   mockAnalyzeLeadWithLLM = mock;
@@ -108,12 +121,7 @@ Format JSON wajib:
 
   try {
     return await retryWithBackoff(async () => {
-      const apiKey = getApiKey();
-      
-      const client = new OpenAI({
-        apiKey,
-        baseURL: "https://api.groq.com/openai/v1",
-      });
+      const client = getClient();
 
       let result;
       try {
