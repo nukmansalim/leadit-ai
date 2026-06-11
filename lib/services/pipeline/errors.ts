@@ -1,10 +1,5 @@
-/**
- * Utility – classify errors as critical (should abort the job) vs
- * transient (skip this business, continue with the next).
- */
-
 import { GooglePlacesError } from "@/lib/google-places";
-import { LLMServiceError } from "@/lib/llm";
+import { LLMServiceError } from "@/lib/llm/llm";
 
 export function isCriticalError(err: unknown): boolean {
   if (err instanceof GooglePlacesError) {

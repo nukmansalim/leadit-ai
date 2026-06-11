@@ -1,7 +1,3 @@
-/**
- * Stage 4 — Persist an analyzed lead into PostgreSQL via upsert.
- */
-
 import { prisma } from "@/lib/prisma";
 import type { AnalyzedLead, PipelineContext } from "./types";
 

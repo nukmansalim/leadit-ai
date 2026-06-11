@@ -1,6 +1,6 @@
 import type { PlaceDetailsResult } from "@/lib/google-places";
 import type { MinimalBusinessInput } from "@/types/business";
-import type { LeadAnalysisResult } from "@/lib/llm";
+import type { LeadAnalysisResult } from "@/lib/llm/llm";
 
 // ── Shared context that flows through the entire pipeline ────────────
 

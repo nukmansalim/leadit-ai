@@ -1,29 +1,19 @@
-/**
- * Stage 1 — Enrich a raw place_id into a fully enriched business object
- * by calling Google Places Details and extracting review data.
- */
-
 import { googlePlacesService, type PlaceSearchResult } from "@/lib/google-places";
 import type { MinimalBusinessInput } from "@/types/business";
 import type { EnrichedBusiness } from "./types";
 import { COMPLAINT_KEYWORDS } from "./complaint-keywords";
 
-/**
- * Returns `null` when the business should be skipped (no matching bad reviews).
- */
 export async function enrichBusiness(
   place: PlaceSearchResult,
 ): Promise<EnrichedBusiness | null> {
   const details = await googlePlacesService.getPlaceDetails(place.place_id);
 
-  // ── Website detection ──────────────────────────────────────────────
   const websiteUrl = details.websiteUri || details.website || "";
   const isInstagram =
     websiteUrl.toLowerCase().includes("instagram.com") ||
     websiteUrl.toLowerCase().includes("instagr.am");
   const hasCustomWebsite = !!websiteUrl && !isInstagram;
 
-  // ── Review pre-filter ──────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawReviews: any[] = details.reviews ? (details.reviews as any[]) : [];
 
@@ -45,7 +35,6 @@ export async function enrichBusiness(
     return null;
   }
 
-  // ── Build enriched payload ─────────────────────────────────────────
   const formattedReviews = rawReviews
     .map((r) => `Rating: ${r.rating || 0} - ${r.text?.text || r.text || ""}`)
     .filter(Boolean);

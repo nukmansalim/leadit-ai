@@ -1,11 +1,4 @@
-/**
- * Stage 3 — Call the LLM, validate its response with Zod, and apply
- * any post-analysis filters (e.g. no-POS weakness filter).
- *
- * Returns `null` when the lead should be discarded after analysis.
- */
-
-import { analyzeLeadWithLLM } from "@/lib/llm";
+import { analyzeLeadWithLLM } from "@/lib/llm/llm";
 import { z } from "zod";
 import type { EnrichedBusiness, AnalyzedLead, PipelineContext } from "./types";
 
@@ -16,7 +9,17 @@ const LeadAnalysisSchema = z.object({
   confidence: z.number().min(0).max(100).optional(),
   no_instagram: z.boolean().optional(),
   no_pos: z.boolean().optional(),
-  complaint_category: z.string().nullable().optional(),
+  complaint_category: z
+    .enum([
+      "slow_service",
+      "long_queues",
+      "payment_issues",
+      "food_consistency",
+      "cleanliness",
+      "other",
+    ])
+    .nullable()
+    .optional(),
   bad_review_summary: z.string().nullable().optional(),
   recommended_solution: z.string().nullable().optional(),
 });
